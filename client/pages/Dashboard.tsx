@@ -1,9 +1,10 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Upload, FileText, CheckCircle, Clock, AlertCircle, Eye, Trash2 } from 'lucide-react';
 import { useAccessibility } from '../context/AccessibilityContext';
 import { useAuth } from '../context/AuthContext';
 import { DocStatus, DocumentItem } from '../types';
+import { supabase, isSupabaseConfigured } from '../services/supabase';
 
 // Mock Data for offline/demo mode
 const MOCK_DOCS: DocumentItem[] = [
@@ -12,43 +13,48 @@ const MOCK_DOCS: DocumentItem[] = [
   { id: '3', name: 'Lease_Agreement_2024.pdf', status: 'Needs Review', created_at: '2023-10-27' },
 ];
 
+interface AnalysisResponse {
+  success: boolean;
+  extracted_text: string;
+  analysis?: string;
+  message?: string;
+}
+
 const Dashboard: React.FC = () => {
   const { highContrast } = useAccessibility();
   const { user } = useAuth();
   const [docs, setDocs] = useState<DocumentItem[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(true);
   const [dragActive, setDragActive] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch Documents
-  useEffect(() => {
-    const fetchDocuments = async () => {
-      if (!isSupabaseConfigured() || !user) {
-        setDocs(MOCK_DOCS);
-        setLoadingDocs(false);
-        return;
-      }
+  // Fetch Documents Logic
+  const fetchDocuments = useCallback(async () => {
+    if (!isSupabaseConfigured() || !user) {
+      setDocs(MOCK_DOCS);
+      setLoadingDocs(false);
+      return;
+    }
 
-      try {
-        const { data, error } = await supabase
-          .from('documents')
-          .select('*')
-          .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('documents')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-        if (error) throw error;
-        setDocs(data || []);
-      } catch (error) {
-        console.error('Error fetching documents:', error);
-      } finally {
-        setLoadingDocs(false);
-      }
-    };
-
-    fetchDocuments();
-    
-    // Optional: Realtime subscription could go here
+      if (error) throw error;
+      setDocs(data || []);
+    } catch (error) {
+      console.error('Error fetching documents:', error);
+    } finally {
+      setLoadingDocs(false);
+    }
   }, [user]);
+
+  // Initial Fetch
+  useEffect(() => {
+    fetchDocuments();
+  }, [fetchDocuments]);
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -70,75 +76,78 @@ const Dashboard: React.FC = () => {
   };
 
   const handleFileUpload = async (file: File) => {
-    setUploading(true);
+    // 1. Optimistic UI: Immediately show pending document
+    const tempId = `temp-${Date.now()}`;
+    const tempDoc: DocumentItem = {
+      id: tempId,
+      name: file.name,
+      status: 'Pending',
+      created_at: new Date().toISOString(),
+      original: '',
+      translated: ''
+    };
+
+    setDocs(prev => [tempDoc, ...prev]);
     
     try {
       if (!isSupabaseConfigured() || !user) {
-        // Mock Flow
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        const newDoc: DocumentItem = {
-          id: Date.now().toString(),
-          name: file.name,
-          status: 'Pending',
-          created_at: new Date().toISOString().split('T')[0]
-        };
-        setDocs([newDoc, ...docs]);
-        setTimeout(() => {
-          setDocs(prev => prev.map(d => d.id === newDoc.id ? { ...d, status: 'Ready' } : d));
-        }, 3000);
+        // Mock Flow for Demo
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        setDocs(prev => prev.map(d => d.id === tempId ? { 
+            ...d, 
+            id: Date.now().toString(), // Swap temp ID for "real" mock ID
+            status: 'Ready', 
+            original: 'Mock original content', 
+            translated: 'Mock analysis content' 
+        } : d));
         return;
       }
 
-      // Real Flow: Insert into 'documents' table
-      // Note: We are mocking the file storage/flask backend part by just creating the DB record
-      // In a real scenario, you'd upload to storage, then trigger a function.
-      
-      const { data, error } = await supabase
-        .from('documents')
-        .insert([
-          { 
-            name: file.name, 
-            status: 'Pending', 
-            user_id: user.id, // Assuming RLS requires this or it's part of the table
-            original: "Processing original text...", // Placeholder until backend processes it
-            translated: "Processing translation..." 
-          }
-        ])
-        .select()
-        .single();
+      // 2. Upload to Backend API
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
 
-      if (error) throw error;
+      const formData = new FormData();
+      formData.append('file', file);
 
-      setDocs([data, ...docs]);
+      // Using localhost:8000/upload as requested
+      const response = await fetch('http://localhost:8000/upload', {
+        method: 'POST',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+        body: formData
+      });
 
-      // Simulate the "Backend Processing" updating the record after a few seconds
-      // This is just to make the UI feel alive since we don't have the Flask backend connected
-      setTimeout(async () => {
-         const { error: updateError } = await supabase
-            .from('documents')
-            .update({ 
-                status: 'Ready',
-                original: `(Simulated content for ${file.name})\n\nThis is the original text extracted from the uploaded file. In a production environment, the Flask backend would process the file buffer and update this column.`,
-                translated: `(Simulated Simplification)\n\nThis is the simplified version of the text. The AI has processed the original content and generated this easier-to-read summary based on your preferences.`
-            })
-            .eq('id', data.id);
-         
-         if (!updateError) {
-             setDocs(prev => prev.map(d => d.id === data.id ? { ...d, status: 'Ready' } : d));
-         }
-      }, 4000);
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
+      }
 
-    } catch (err) {
+      const result: AnalysisResponse = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.message || 'Processing failed');
+      }
+
+      // 3. Backend handled insertion. 
+      // Refresh list to get the new document with real ID from Supabase.
+      // This replaces the 'temp' document with the actual record from the DB.
+      await fetchDocuments();
+
+    } catch (err: any) {
       console.error("Upload failed", err);
-      alert("Upload failed. See console for details.");
-    } finally {
-      setUploading(false);
+      // Mark as errored in the list, keep the item visible so user knows it failed
+      setDocs(prev => prev.map(d => d.id === tempId ? { ...d, status: 'Needs Review', name: `${file.name} (Failed)` } : d));
     }
   };
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
-    e.preventDefault(); // Prevent navigation if button is inside link (it isn't here, but good practice)
+    e.preventDefault();
+    e.stopPropagation(); // Stop row click
     if (!confirm('Are you sure you want to delete this document?')) return;
+
+    if (id.startsWith('temp-')) {
+       setDocs(docs.filter(d => d.id !== id));
+       return;
+    }
 
     if (isSupabaseConfigured()) {
         const { error } = await supabase.from('documents').delete().eq('id', id);
@@ -194,7 +203,7 @@ const Dashboard: React.FC = () => {
           </div>
           <div>
             <p className="text-xl font-medium mb-1">
-              {uploading ? 'Uploading & Processing...' : 'Click or Drag file to upload'}
+              Click or Drag file to upload
             </p>
             <p className="opacity-60 text-sm">PDF, DOCX, TXT up to 10MB</p>
           </div>
@@ -225,7 +234,9 @@ const Dashboard: React.FC = () => {
                         <span className="font-medium">{doc.name}</span>
                       </div>
                     </td>
-                    <td className="p-4 opacity-70">{new Date(doc.created_at).toLocaleDateString()}</td>
+                    <td className="p-4 opacity-70">
+                        {doc.created_at ? new Date(doc.created_at).toLocaleDateString() : 'Just now'}
+                    </td>
                     <td className="p-4">
                       <span className={`px-3 py-1 rounded-full text-xs font-bold inline-flex items-center gap-1.5 ${getStatusColor(doc.status)}`}>
                         {doc.status === 'Ready' && <CheckCircle size={12} />}

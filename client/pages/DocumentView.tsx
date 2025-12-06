@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAccessibility } from '../context/AccessibilityContext';
 import { supabase, isSupabaseConfigured } from '../services/supabase';
-import { ArrowLeft, FileText, Maximize2 } from 'lucide-react';
+import { ArrowLeft, FileText, Maximize2, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import { DocumentItem } from '../types';
 
 const MOCK_CONTENT = {
@@ -38,9 +38,10 @@ const DocumentView: React.FC = () => {
       }
 
       try {
+        // Explicitly select columns matching the schema provided: original, translated, created_at, name, status
         const { data, error } = await supabase
           .from('documents')
-          .select('*')
+          .select('id, name, status, created_at, original, translated')
           .eq('id', id)
           .single();
 
@@ -85,7 +86,22 @@ const DocumentView: React.FC = () => {
           <Link to="/dashboard" className="p-2 rounded-full hover:bg-gray-500/10">
             <ArrowLeft size={20} />
           </Link>
-          <h1 className="font-bold truncate max-w-[200px] sm:max-w-md">{doc.name}</h1>
+          <div>
+            <h1 className="font-bold truncate max-w-[200px] sm:max-w-md text-lg leading-tight">{doc.name}</h1>
+            <div className="flex items-center gap-3 text-xs opacity-70 mt-1">
+               <span className={`px-2 py-0.5 rounded-full font-bold uppercase tracking-wider inline-flex items-center gap-1 ${
+                  doc.status === 'Ready' ? 'bg-green-100 text-green-700' : 
+                  doc.status === 'Pending' ? 'bg-yellow-100 text-yellow-700' : 
+                  'bg-red-100 text-red-700'
+               }`}>
+                 {doc.status === 'Ready' && <CheckCircle size={10} />}
+                 {doc.status === 'Pending' && <Clock size={10} />}
+                 {doc.status === 'Needs Review' && <AlertCircle size={10} />}
+                 {doc.status}
+               </span>
+               <span>{new Date(doc.created_at).toLocaleDateString()}</span>
+            </div>
+          </div>
         </div>
 
         <div className="flex bg-gray-500/10 p-1 rounded-lg">
