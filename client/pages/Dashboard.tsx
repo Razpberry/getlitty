@@ -4,7 +4,6 @@ import { Upload, FileText, CheckCircle, Clock, AlertCircle, Eye, Trash2 } from '
 import { useAccessibility } from '../context/AccessibilityContext';
 import { useAuth } from '../context/AuthContext';
 import { DocStatus, DocumentItem } from '../types';
-import { supabase, isSupabaseConfigured } from '../services/supabase';
 
 // Mock Data for offline/demo mode
 const MOCK_DOCS: DocumentItem[] = [
