@@ -3,6 +3,8 @@ import { useParams, Link } from 'react-router-dom';
 import { useAccessibility } from '../context/AccessibilityContext';
 import { supabase, isSupabaseConfigured } from '../services/supabase';
 import { ArrowLeft, FileText, Maximize2, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import ReactMarkdown from "react-markdown";
+import rehypeRaw from 'rehype-raw';
 import { DocumentItem } from '../types';
 
 const MOCK_CONTENT = {
@@ -150,10 +152,10 @@ const DocumentView: React.FC = () => {
               <div className="p-3 border-b border-gray-200/10 text-xs font-bold uppercase tracking-wider flex items-center gap-2 text-brand-600">
                 <Maximize2 size={14} /> Simplified
               </div>
-              <div className="flex-1 overflow-y-auto p-6">
-                <p className={`${contentTextSize} font-sans whitespace-pre-wrap`}>
+              <div className="flex-1 overflow-y-auto p-6 prose prose-lg max-w-none">
+                <ReactMarkdown className={`${contentTextSize} font-sans`} rehypePlugins={[rehypeRaw]}>
                   {doc.translated || '(Simplification pending...)'}
-                </p>
+                </ReactMarkdown>
               </div>
             </div>
           )}

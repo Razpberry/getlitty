@@ -1,36 +1,37 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Upload, FileText, CheckCircle, Clock, AlertCircle, Eye, Trash2, Search, X, GripVertical } from 'lucide-react';
+import { Upload, FileText, CheckCircle, Clock, AlertCircle, Eye, Trash2, Search, CheckSquare, Square } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { DocStatus, DocumentItem } from '../types';
 import { supabase, isSupabaseConfigured } from '../services/supabase';
+// Assuming these are defined in your project, otherwise replace with local types
+import { DocStatus, DocumentItem } from '../types'; 
 import NoDocuments from '../components/illustrations/NoDocuments';
 
 // Mock Data for offline/demo mode
 const MOCK_DOCS: DocumentItem[] = [
-  { id: '1', name: 'History_Essay_Draft_v2.pdf', status: 'Ready', created_at: '2023-10-25' },
-  { id: '2', name: 'Physics_Notes_Chapter_4.docx', status: 'Pending', created_at: '2023-10-26' },
-  { id: '3', name: 'Lease_Agreement_2024.pdf', status: 'Needs Review', created_at: '2023-10-27' },
-  { id: '4', name: 'Philosophy_Reading.txt', status: 'Ready', created_at: '2023-10-28' },
-  { id: '5', name: 'Lab_Report_Final.docx', status: 'Ready', created_at: '2023-10-29' },
+  { id: '1', name: 'History_Essay_Draft_v2.pdf', status: 'Ready', created_at: '2023-10-25', original: '', translated: '' },
+  { id: '2', name: 'Physics_Notes_Chapter_4.docx', status: 'Pending', created_at: '2023-10-26', original: '', translated: '' },
+  { id: '3', name: 'Lease_Agreement_2024.pdf', status: 'Needs Review', created_at: '2023-10-27', original: '', translated: '' },
+  { id: '4', name: 'Philosophy_Reading.txt', status: 'Ready', created_at: '2023-10-28', original: '', translated: '' },
+  { id: '5', name: 'Lab_Report_Final.docx', status: 'Ready', created_at: '2023-10-29', original: '', translated: '' },
 ];
 
-interface AnalysisResponse {
-  success: boolean;
-  extracted_text: string;
-  analysis?: string;
-  message?: string;
-}
-
 const Dashboard: React.FC = () => {
-  const { user } = useAuth();
+  // 1. Fixed: Destructure session to use access_token later
+  const { user, session } = useAuth();
+  
+  // 2. Fixed: Added missing state variables
   const [docs, setDocs] = useState<DocumentItem[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(true);
   const [dragActive, setDragActive] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState<'All' | DocStatus>('All');
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedDocs, setSelectedDocs] = useState<Set<string>>(new Set());
   
   // Store the prompt fetched from profiles table
   const [userPrompt, setUserPrompt] = useState<string>('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch Documents Logic
   const fetchDocuments = useCallback(async () => {
@@ -59,7 +60,7 @@ const Dashboard: React.FC = () => {
     const fetchUserPrompt = async () => {
       if (!user || !isSupabaseConfigured()) return;
       try {
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from('profiles')
           .select('details')
           .eq('id', user.id)
@@ -116,12 +117,11 @@ const Dashboard: React.FC = () => {
 
       const formData = new FormData();
       formData.append('file', file);
-      // Append the profile details as 'prompt'
       formData.append('prompt', userPrompt);
 
-      // Using localhost:8000/upload as requested
       const response = await fetch('http://localhost:8000/upload', {
         method: 'POST',
+        // 3. Fixed: Uses session from useAuth destructuring
         headers: session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {},
         body: formData
       });
@@ -145,12 +145,10 @@ const Dashboard: React.FC = () => {
       const { error } = await supabase.from('documents').delete().in('id', ids);
       if (error) {
         alert('Error deleting document(s)');
-        // Re-fetch to revert optimistic update
-        fetchDocuments();
+        fetchDocuments(); // Revert
       }
     }
     
-    // Clean up selection
     if (selectMode) {
         setSelectedDocs(new Set());
         setSelectMode(false);
@@ -216,8 +214,8 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Controls */}
-      <div className="mb-6 flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-grow">
+      <div className="mb-6 flex flex-col sm:flex-row gap-4 items-center">
+        <div className="relative flex-grow w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
           <input
             type="text"
@@ -227,17 +225,30 @@ const Dashboard: React.FC = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 sm:pb-0">
             <FilterButton status="All" current={filterStatus} onClick={setFilterStatus} />
             <FilterButton status="Ready" current={filterStatus} onClick={setFilterStatus} />
             <FilterButton status="Pending" current={filterStatus} onClick={setFilterStatus} />
             <FilterButton status="Needs Review" current={filterStatus} onClick={setFilterStatus} />
         </div>
         <div className="flex items-center gap-2">
+            {/* 4. Fixed: Added toggle logic for Select All */}
+            {selectMode && (
+              <button
+                onClick={toggleSelectAll}
+                className="p-2 rounded-lg hover:bg-gray-200 text-gray-600"
+                title="Select All"
+              >
+                {selectedDocs.size === filteredDocs.length && filteredDocs.length > 0 ? <CheckSquare size={20} /> : <Square size={20} />}
+              </button>
+            )}
             <button
-              onClick={() => setSelectMode(!selectMode)}
+              onClick={() => {
+                setSelectMode(!selectMode);
+                setSelectedDocs(new Set());
+              }}
               className={`px-4 py-2 rounded-lg font-semibold text-sm flex items-center gap-2 transition-colors ${
-                selectMode ? 'bg-brand-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                selectMode ? 'bg-gray-800 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
               }`}
             >
               {selectMode ? 'Cancel' : 'Select'}
@@ -275,10 +286,11 @@ const Dashboard: React.FC = () => {
         </div>
       ) : (
         <div className="text-center py-16 sm:py-20 border-2 border-dashed border-gray-300 rounded-xl">
+            {/* Ensure NoDocuments component exists or remove */}
             <NoDocuments className="w-48 h-48 mx-auto text-gray-400" />
             <h3 className="mt-6 text-xl font-semibold text-gray-800">No documents here yet.</h3>
             <p className="mt-2 text-base text-gray-500">
-                {searchTerm ? `Try adjusting your search or filter.` : `Upload a document to get started and see the magic!`}
+                {searchTerm ? `Try adjusting your search or filter.` : `Upload a document to get started!`}
             </p>
             {!searchTerm && (
                 <button
@@ -297,25 +309,31 @@ const Dashboard: React.FC = () => {
 
 // -- Components --
 
-const FilterButton: React.FC<{ status: DocStatus | 'All', current: string, onClick: (status: DocStatus | 'All') => void }> = 
-({ status, current, onClick }) => {
+// 5. Fixed: Explicit type definition for FilterButton props
+interface FilterButtonProps {
+    status: 'All' | DocStatus;
+    current: string;
+    onClick: (status: 'All' | DocStatus) => void;
+}
+
+const FilterButton: React.FC<FilterButtonProps> = ({ status, current, onClick }) => {
     const isActive = status === current;
-    const colors = {
-        'All': 'hover:bg-gray-200',
+    const colors: Record<string, string> = {
+        'All': 'hover:bg-gray-200 text-gray-600',
         'Ready': 'hover:bg-green-100 text-green-700',
         'Pending': 'hover:bg-yellow-100 text-yellow-700',
         'Needs Review': 'hover:bg-red-100 text-red-700',
     };
-    const activeColors = {
-        'All': 'bg-gray-200',
-        'Ready': 'bg-green-100 text-green-800',
-        'Pending': 'bg-yellow-100 text-yellow-800',
-        'Needs Review': 'bg-red-100 text-red-800',
+    const activeColors: Record<string, string> = {
+        'All': 'bg-gray-800 text-white',
+        'Ready': 'bg-green-100 text-green-800 border border-green-200',
+        'Pending': 'bg-yellow-100 text-yellow-800 border border-yellow-200',
+        'Needs Review': 'bg-red-100 text-red-800 border border-red-200',
     };
     return (
         <button
             onClick={() => onClick(status)}
-            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${isActive ? activeColors[status] : colors[status]}`}
+            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${isActive ? activeColors[status] : colors[status]}`}
         >
             {status}
         </button>
@@ -346,47 +364,47 @@ const DocumentCard: React.FC<{
     <div
       onClick={onSelect}
       style={style}
-      className={`relative group bg-white border rounded-lg shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer ${
+      className={`relative group bg-white border rounded-lg shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer overflow-hidden ${
         selectMode ? 'border-gray-300' : 'hover:-translate-y-1'
       } ${isSelected ? 'ring-2 ring-brand-500 border-transparent' : ''} ${className}`}
     >
       {selectMode && (
-         <div className={`absolute top-3 right-3 w-5 h-5 rounded-full flex items-center justify-center border-2 transition-all ${isSelected ? 'bg-brand-600 border-brand-600' : 'bg-white border-gray-400'}`}>
+         <div className={`absolute top-3 right-3 w-5 h-5 rounded-full flex items-center justify-center border-2 transition-all z-10 ${isSelected ? 'bg-brand-600 border-brand-600' : 'bg-white border-gray-400'}`}>
             {isSelected && <CheckCircle className="text-white" size={14} />}
         </div>
       )}
-      <div className={`p-4 border-l-4 ${color} rounded-l-lg`}>
-        <div className="flex justify-between items-start">
-            <div className='flex items-center gap-3'>
-                 {icon}
-                 <h3 className="font-semibold text-gray-800 pr-8">{doc.name}</h3>
+      <div className={`p-4 border-l-4 ${color} h-full flex flex-col`}>
+        <div className="flex justify-between items-start mb-2">
+            <div className='flex items-start gap-3 w-full'>
+                 <div className="mt-0.5 flex-shrink-0">{icon}</div>
+                 <h3 className="font-semibold text-gray-800 line-clamp-2 pr-6 leading-tight break-all">{doc.name}</h3>
             </div>
-            <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                 {!selectMode && (
                      <button
                         onClick={(e) => { e.stopPropagation(); onDelete(); }}
                         className="p-1.5 rounded-full hover:bg-red-100 hover:text-red-600 text-gray-400 transition-colors"
                         title="Delete"
                       >
-                        <Trash2 size={18} />
+                        <Trash2 size={16} />
                       </button>
                 )}
             </div>
         </div>
 
-        <div className="mt-4 flex justify-between items-center text-sm text-gray-500">
+        <div className="mt-auto pt-4 flex justify-between items-center text-xs text-gray-500">
             <span>{doc.created_at ? new Date(doc.created_at).toLocaleDateString() : 'Just now'}</span>
-            <span className={`px-2 py-1 rounded-full text-xs font-bold inline-flex items-center gap-1.5`}>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] uppercase font-bold tracking-wider border bg-gray-50`}>
                 {doc.status}
             </span>
         </div>
         {doc.status === 'Ready' && (
             <Link
                 to={`/document/${doc.id}`}
-                onClick={(e) => { if (selectMode) e.preventDefault(); }} // Disable link in select mode
-                className={`mt-4 inline-flex items-center gap-2 text-sm font-semibold text-brand-600 hover:underline ${selectMode ? 'opacity-50 cursor-not-allowed' : ''}`}
+                onClick={(e) => { if (selectMode) e.preventDefault(); }} 
+                className={`mt-3 w-full text-center py-1.5 rounded text-sm font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 transition-colors ${selectMode ? 'opacity-50 pointer-events-none' : ''}`}
               >
-                <Eye size={16} /> View Document
+                View Document
             </Link>
         )}
       </div>
@@ -396,18 +414,19 @@ const DocumentCard: React.FC<{
 
 const SkeletonCard: React.FC = () => {
     return (
-        <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4">
-            <div className="animate-pulse flex space-x-4">
-                <div className="rounded-full bg-gray-200 h-10 w-10"></div>
-                <div className="flex-1 space-y-3 py-1">
-                    <div className="h-2 bg-gray-200 rounded"></div>
-                    <div className="space-y-2">
-                        <div className="grid grid-cols-3 gap-4">
-                            <div className="h-2 bg-gray-200 rounded col-span-2"></div>
-                            <div className="h-2 bg-gray-200 rounded col-span-1"></div>
-                        </div>
-                        <div className="h-2 bg-gray-200 rounded"></div>
-                    </div>
+        <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4 h-48">
+            <div className="animate-pulse flex flex-col h-full">
+                <div className="flex space-x-3 mb-4">
+                    <div className="rounded-full bg-gray-200 h-6 w-6"></div>
+                    <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                </div>
+                <div className="space-y-3 flex-grow">
+                    <div className="h-2 bg-gray-200 rounded w-full"></div>
+                    <div className="h-2 bg-gray-200 rounded w-5/6"></div>
+                </div>
+                <div className="flex justify-between mt-4">
+                     <div className="h-3 bg-gray-200 rounded w-1/4"></div>
+                     <div className="h-3 bg-gray-200 rounded w-1/4"></div>
                 </div>
             </div>
         </div>
