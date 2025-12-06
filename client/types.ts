@@ -16,14 +16,14 @@ export interface QuestionnaireData {
 
 export type DocStatus = 'Uploaded' | 'Pending' | 'Ready' | 'Needs Review';
 
+// Aligned with Supabase 'documents' table
 export interface DocumentItem {
   id: string;
-  title: string;
-  status: DocStatus;
-  uploadDate: string;
-  originalUrl?: string;
-  simplifiedUrl?: string;
-  preview?: string;
+  name: string;      // Table column: name
+  status: DocStatus; // Table column: status
+  created_at: string; // Table column: created_at
+  original?: string;  // Table column: original (text content)
+  translated?: string; // Table column: translated (text content)
 }
 
 export interface AuthState {

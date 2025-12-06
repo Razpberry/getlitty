@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAccessibility } from '../context/AccessibilityContext';
 import { useAuth } from '../context/AuthContext';
-import { Sun, Moon, Type, LogOut, BookOpen } from 'lucide-react';
+import { Sun, Moon, Type, LogOut, BookOpen, Sparkles } from 'lucide-react';
 
 const Layout: React.FC = () => {
   const { toggleFontSize, toggleHighContrast, highContrast } = useAccessibility();
@@ -48,6 +48,9 @@ const Layout: React.FC = () => {
             {user ? (
               <div className="flex items-center gap-4">
                 <Link to="/dashboard" className={`font-medium hover:underline ${highContrast ? 'text-yellow-400' : 'text-brand-700'}`}>Dashboard</Link>
+                <Link to="/questionnaire" className={`hidden sm:flex items-center gap-1 font-medium hover:underline ${highContrast ? 'text-yellow-400' : 'text-brand-700'}`}>
+                   <Sparkles size={16} /> Personalize
+                </Link>
                 <button 
                   onClick={() => signOut()} 
                   className={`flex items-center gap-2 px-3 py-1.5 rounded border ${highContrast ? 'border-yellow-400 text-yellow-400 hover:bg-yellow-900' : 'border-slate-300 hover:bg-slate-50'}`}

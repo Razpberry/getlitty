@@ -26,7 +26,15 @@ const AppRoutes = () => {
         <Route index element={user ? <Navigate to="/dashboard" replace /> : <Landing />} />
         
         <Route path="login" element={user ? <Navigate to="/dashboard" replace /> : <Auth />} />
-        <Route path="signup" element={user ? <Navigate to="/dashboard" replace /> : <Auth />} />
+        
+        {/* Smart redirect for signup: Go to questionnaire if not completed, otherwise dashboard */}
+        <Route path="signup" element={
+          user ? (
+            user.questionnaire_completed ? <Navigate to="/dashboard" replace /> : <Navigate to="/questionnaire" replace />
+          ) : (
+            <Auth />
+          )
+        } />
         
         <Route path="questionnaire" element={
           <ProtectedRoute>

@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAccessibility } from '../context/AccessibilityContext';
-import { ArrowLeft, SplitSquareHorizontal, FileText, Maximize2 } from 'lucide-react';
+import { supabase, isSupabaseConfigured } from '../services/supabase';
+import { ArrowLeft, FileText, Maximize2 } from 'lucide-react';
+import { DocumentItem } from '../types';
 
 const MOCK_CONTENT = {
   original: `The concept of quantum entanglement posits that particles can become correlated in such a way that the quantum state of each particle cannot be described independently of the state of the others, even when the particles are separated by a large distance. This phenomenon, which Einstein famously referred to as "spooky action at a distance," has been experimentally verified numerous times and forms the basis for emerging technologies such as quantum cryptography and quantum computing.`,
@@ -9,12 +11,71 @@ const MOCK_CONTENT = {
 };
 
 const DocumentView: React.FC = () => {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
   const { highContrast, fontSize } = useAccessibility();
   const [activeTab, setActiveTab] = useState<'split' | 'original' | 'simplified'>('split');
+  const [doc, setDoc] = useState<DocumentItem | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchDocument = async () => {
+      if (!id) return;
+      setLoading(true);
+
+      if (!isSupabaseConfigured()) {
+        // Return mock data
+        setDoc({
+            id,
+            name: 'Mock Document',
+            status: 'Ready',
+            created_at: new Date().toISOString(),
+            original: MOCK_CONTENT.original,
+            translated: MOCK_CONTENT.simplified
+        });
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('documents')
+          .select('*')
+          .eq('id', id)
+          .single();
+
+        if (error) throw error;
+        setDoc(data);
+      } catch (err: any) {
+        console.error('Error fetching document:', err);
+        setError('Could not load document.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDocument();
+  }, [id]);
 
   // Adjust text size class based on context
   const contentTextSize = fontSize === 'xlarge' ? 'text-2xl leading-relaxed' : (fontSize === 'large' ? 'text-xl leading-relaxed' : 'text-lg leading-relaxed');
+
+  if (loading) {
+      return (
+          <div className="flex h-[calc(100vh-64px)] items-center justify-center">
+              <div className="text-lg font-medium opacity-60">Loading content...</div>
+          </div>
+      );
+  }
+
+  if (error || !doc) {
+      return (
+        <div className="flex h-[calc(100vh-64px)] flex-col items-center justify-center gap-4">
+            <div className="text-red-500 font-bold">{error || 'Document not found'}</div>
+            <Link to="/dashboard" className="text-brand-600 hover:underline">Return to Dashboard</Link>
+        </div>
+      );
+  }
 
   return (
     <div className="flex flex-col h-[calc(100vh-64px)]">
@@ -24,7 +85,7 @@ const DocumentView: React.FC = () => {
           <Link to="/dashboard" className="p-2 rounded-full hover:bg-gray-500/10">
             <ArrowLeft size={20} />
           </Link>
-          <h1 className="font-bold truncate max-w-[200px] sm:max-w-md">Document Viewer {id}</h1>
+          <h1 className="font-bold truncate max-w-[200px] sm:max-w-md">{doc.name}</h1>
         </div>
 
         <div className="flex bg-gray-500/10 p-1 rounded-lg">
@@ -61,10 +122,7 @@ const DocumentView: React.FC = () => {
               </div>
               <div className="flex-1 overflow-y-auto p-6">
                 <p className={`${contentTextSize} font-serif whitespace-pre-wrap`}>
-                  {MOCK_CONTENT.original}
-                  {/* Repeat content to show scrolling */}
-                  {'\n\n'}{MOCK_CONTENT.original}
-                  {'\n\n'}{MOCK_CONTENT.original}
+                  {doc.original || '(No original content available)'}
                 </p>
               </div>
             </div>
@@ -78,9 +136,7 @@ const DocumentView: React.FC = () => {
               </div>
               <div className="flex-1 overflow-y-auto p-6">
                 <p className={`${contentTextSize} font-sans whitespace-pre-wrap`}>
-                  {MOCK_CONTENT.simplified}
-                  {'\n\n'}{MOCK_CONTENT.simplified}
-                  {'\n\n'}{MOCK_CONTENT.simplified}
+                  {doc.translated || '(Simplification pending...)'}
                 </p>
               </div>
             </div>
