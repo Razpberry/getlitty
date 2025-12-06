@@ -75,7 +75,7 @@ const Landing: React.FC = () => {
               <div className="relative rounded-2xl overflow-hidden border-4 border-white shadow-2xl">
                 <img
                   src="/hero.png"
-                  alt="Simplified Documents Dashboard Screenshot"
+                  alt="GetLitty Dashboard Example"
                   className="w-full h-auto object-cover"
                 />
                 {/* Floating Badge */}
