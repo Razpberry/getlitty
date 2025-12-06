@@ -28,14 +28,11 @@ const Dashboard: React.FC = () => {
   const [loadingDocs, setLoadingDocs] = useState(true);
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState<DocStatus | 'All'>('All');
   
-  // State for bulk actions
-  const [selectMode, setSelectMode] = useState(false);
-  const [selectedDocs, setSelectedDocs] = useState<Set<string>>(new Set());
+  // Store the prompt fetched from profiles table
+  const [userPrompt, setUserPrompt] = useState<string>('');
 
+  // Fetch Documents Logic
   const fetchDocuments = useCallback(async () => {
     if (!isSupabaseConfigured() || !user) {
       setDocs(MOCK_DOCS);
@@ -57,6 +54,29 @@ const Dashboard: React.FC = () => {
     }
   }, [user]);
 
+  // Fetch User Profile Details (Prompt)
+  useEffect(() => {
+    const fetchUserPrompt = async () => {
+      if (!user || !isSupabaseConfigured()) return;
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('details')
+          .eq('id', user.id)
+          .single();
+        
+        if (data && data.details) {
+          setUserPrompt(data.details);
+        }
+      } catch (error) {
+        console.error('Error fetching user profile prompt:', error);
+      }
+    };
+    
+    fetchUserPrompt();
+  }, [user]);
+
+  // Initial Fetch
   useEffect(() => {
     fetchDocuments();
   }, [fetchDocuments]);
@@ -96,10 +116,10 @@ const Dashboard: React.FC = () => {
 
       const formData = new FormData();
       formData.append('file', file);
-      
-      // Assuming you have the token logic from your auth context
-      const { data: { session } } = await supabase.auth.getSession();
+      // Append the profile details as 'prompt'
+      formData.append('prompt', userPrompt);
 
+      // Using localhost:8000/upload as requested
       const response = await fetch('http://localhost:8000/upload', {
         method: 'POST',
         headers: session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {},

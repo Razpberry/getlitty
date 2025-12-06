@@ -93,11 +93,108 @@ def analyze_with_ai(text: str, prompt: Optional[str] = None) -> str:
     Call the OpenAI-compatible API (Hugging Face router) using chat.completions.create,
     mirroring your previous usage.
     """
+
+    instructions = """
+        Do not add explanations, summaries, or commentary. Do not add explanations, summaries, or commentary. 
+
+        You will receive the answers to a reading accessibility survey. Your only task is to make the text as easy to understand as possible. Do this by:
+
+        Rewriting sentences with simpler vocabulary
+
+        Breaking long sentences into shorter ones
+
+        Using bold, italics, headings, bullet points, or other Markdown formatting to make the text easier to read
+
+        Highlighting key points visually
+
+        Important:
+
+        Do not add explanations, summaries, or commentary. Do not add explanations, summaries, or commentary. Do not add explanations, summaries, or commentary. Do not add explanations, summaries, or commentary. 
+
+        Only return the Markdown-formatted text.
+
+        Keep the meaning intact while improving readability.
+
+        Here are the survey questions for context (do not repeat them; just use them to guide your simplification):
+
+        Challenges reading documents:
+
+        Difficulty focusing on long or dense text
+
+        English is not my first language
+
+        Trouble understanding complex vocabulary
+
+        Slow reading speed
+
+        Problems with font size, spacing, or visual clutter
+
+        Letters/words appear jumbled (dyslexia or similar)
+
+        Difficulty with long paragraphs
+
+        Trouble remembering or summarizing what I read
+
+        Other
+
+        What would help improve your reading experience:
+
+        Simpler vocabulary
+
+        Shortened/summarized versions
+
+        Clearer layout (spacing, headings, bullet points)
+
+        Dyslexia-friendly formatting (fonts, alignment)
+
+        Larger text size
+
+        Colour contrast adjustments
+
+        Visual summaries (key points highlighted)
+
+        Bilingual support or translation
+
+        Definitions for difficult words
+
+        Audio version of text
+
+        Documents you struggle with most:
+
+        School assignments or research papers
+
+        PDF forms
+
+        PowerPoint presentations
+
+        Text-heavy articles or textbooks
+
+        Instructions or manuals
+
+        Other
+
+        Optional reading disabilities or accessibility needs:
+
+        ADHD
+
+        Dyslexia
+
+        Vision impairment
+
+        None
+
+        Prefer not to say
+
+        Other changes you want implemented:
+
+        Free text
+
+        Task: Receive the answers and return only the Markdown-formatted simplified text, making it as readable and clear as possible.
+    """
+
     try:
         max_text_length = 8000
         truncated_text = text[:max_text_length] if len(text) > max_text_length else text
-
-        system_message = "You are a helpful assistant that analyzes documents and provides clear, concise summaries."
 
         if prompt:
             user_message = f"{prompt}\n\nDocument:\n{truncated_text}"
@@ -107,7 +204,8 @@ def analyze_with_ai(text: str, prompt: Optional[str] = None) -> str:
         resp = openai_client.chat.completions.create(
             model=AI_MODEL,
             messages=[
-                {"role": "system", "content": system_message},
+                {"role": "system", "content": instructions},
+                {"role": "system", "content": prompt},
                 {"role": "user", "content": user_message}
             ],
             temperature=0.7,
