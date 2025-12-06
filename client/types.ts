@@ -35,7 +35,5 @@ export interface AuthState {
 
 export interface AccessibilityState {
   fontSize: 'normal' | 'large' | 'xlarge';
-  highContrast: boolean;
   toggleFontSize: () => void;
-  toggleHighContrast: () => void;
 }

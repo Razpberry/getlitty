@@ -1,16 +1,18 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Upload, FileText, CheckCircle, Clock, AlertCircle, Eye, Trash2 } from 'lucide-react';
-import { useAccessibility } from '../context/AccessibilityContext';
+import { Upload, FileText, CheckCircle, Clock, AlertCircle, Eye, Trash2, Search, X, GripVertical } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { DocStatus, DocumentItem } from '../types';
 import { supabase, isSupabaseConfigured } from '../services/supabase';
+import NoDocuments from '../components/illustrations/NoDocuments';
 
 // Mock Data for offline/demo mode
 const MOCK_DOCS: DocumentItem[] = [
   { id: '1', name: 'History_Essay_Draft_v2.pdf', status: 'Ready', created_at: '2023-10-25' },
   { id: '2', name: 'Physics_Notes_Chapter_4.docx', status: 'Pending', created_at: '2023-10-26' },
   { id: '3', name: 'Lease_Agreement_2024.pdf', status: 'Needs Review', created_at: '2023-10-27' },
+  { id: '4', name: 'Philosophy_Reading.txt', status: 'Ready', created_at: '2023-10-28' },
+  { id: '5', name: 'Lab_Report_Final.docx', status: 'Ready', created_at: '2023-10-29' },
 ];
 
 interface AnalysisResponse {
@@ -21,27 +23,31 @@ interface AnalysisResponse {
 }
 
 const Dashboard: React.FC = () => {
-  const { highContrast } = useAccessibility();
   const { user } = useAuth();
   const [docs, setDocs] = useState<DocumentItem[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(true);
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch Documents Logic
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState<DocStatus | 'All'>('All');
+  
+  // State for bulk actions
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedDocs, setSelectedDocs] = useState<Set<string>>(new Set());
+
   const fetchDocuments = useCallback(async () => {
     if (!isSupabaseConfigured() || !user) {
       setDocs(MOCK_DOCS);
       setLoadingDocs(false);
       return;
     }
-
     try {
+      setLoadingDocs(true);
       const { data, error } = await supabase
         .from('documents')
         .select('*')
         .order('created_at', { ascending: false });
-
       if (error) throw error;
       setDocs(data || []);
     } catch (error) {
@@ -51,32 +57,25 @@ const Dashboard: React.FC = () => {
     }
   }, [user]);
 
-  // Initial Fetch
   useEffect(() => {
     fetchDocuments();
   }, [fetchDocuments]);
-
+  
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (e.type === 'dragenter' || e.type === 'dragover') {
-      setDragActive(true);
-    } else if (e.type === 'dragleave') {
-      setDragActive(false);
-    }
+    if (e.type === 'dragenter' || e.type === 'dragover') setDragActive(true);
+    else if (e.type === 'dragleave') setDragActive(false);
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFileUpload(e.dataTransfer.files[0]);
-    }
+    if (e.dataTransfer.files?.[0]) handleFileUpload(e.dataTransfer.files[0]);
   };
 
   const handleFileUpload = async (file: File) => {
-    // 1. Optimistic UI: Immediately show pending document
     const tempId = `temp-${Date.now()}`;
     const tempDoc: DocumentItem = {
       id: tempId,
@@ -86,198 +85,313 @@ const Dashboard: React.FC = () => {
       original: '',
       translated: ''
     };
-
     setDocs(prev => [tempDoc, ...prev]);
     
     try {
       if (!isSupabaseConfigured() || !user) {
-        // Mock Flow for Demo
         await new Promise(resolve => setTimeout(resolve, 2000));
-        setDocs(prev => prev.map(d => d.id === tempId ? { 
-            ...d, 
-            id: Date.now().toString(), // Swap temp ID for "real" mock ID
-            status: 'Ready', 
-            original: 'Mock original content', 
-            translated: 'Mock analysis content' 
-        } : d));
+        setDocs(prev => prev.map(d => d.id === tempId ? { ...d, id: Date.now().toString(), status: 'Ready' } : d));
         return;
       }
 
-      // 2. Upload to Backend API
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-
       const formData = new FormData();
       formData.append('file', file);
+      
+      // Assuming you have the token logic from your auth context
+      const { data: { session } } = await supabase.auth.getSession();
 
-      // Using localhost:8000/upload as requested
       const response = await fetch('http://localhost:8000/upload', {
         method: 'POST',
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+        headers: session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {},
         body: formData
       });
-
-      if (!response.ok) {
-        throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
-      }
-
-      const result: AnalysisResponse = await response.json();
-
-      if (!result.success) {
-        throw new Error(result.message || 'Processing failed');
-      }
-
-      // 3. Backend handled insertion. 
-      // Refresh list to get the new document with real ID from Supabase.
-      // This replaces the 'temp' document with the actual record from the DB.
+      if (!response.ok) throw new Error('Upload failed');
+      
+      // Refresh list to get new document from db
       await fetchDocuments();
-
-    } catch (err: any) {
+    } catch (err) {
       console.error("Upload failed", err);
-      // Mark as errored in the list, keep the item visible so user knows it failed
       setDocs(prev => prev.map(d => d.id === tempId ? { ...d, status: 'Needs Review', name: `${file.name} (Failed)` } : d));
     }
   };
+  
+  const handleDelete = async (ids: string[]) => {
+    if (!confirm(`Are you sure you want to delete ${ids.length} document(s)?`)) return;
 
-  const handleDelete = async (id: string, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation(); // Stop row click
-    if (!confirm('Are you sure you want to delete this document?')) return;
-
-    if (id.startsWith('temp-')) {
-       setDocs(docs.filter(d => d.id !== id));
-       return;
-    }
+    // Optimistic UI update
+    setDocs(prev => prev.filter(d => !ids.includes(d.id)));
 
     if (isSupabaseConfigured()) {
-        const { error } = await supabase.from('documents').delete().eq('id', id);
-        if (error) {
-            alert('Error deleting document');
-            return;
-        }
+      const { error } = await supabase.from('documents').delete().in('id', ids);
+      if (error) {
+        alert('Error deleting document(s)');
+        // Re-fetch to revert optimistic update
+        fetchDocuments();
+      }
     }
-    setDocs(docs.filter(d => d.id !== id));
+    
+    // Clean up selection
+    if (selectMode) {
+        setSelectedDocs(new Set());
+        setSelectMode(false);
+    }
   };
 
-  const getStatusColor = (status: DocStatus) => {
-    switch (status) {
-      case 'Ready': return highContrast ? 'text-green-400' : 'text-green-600 bg-green-50';
-      case 'Pending': return highContrast ? 'text-yellow-400' : 'text-yellow-600 bg-yellow-50';
-      case 'Needs Review': return highContrast ? 'text-red-400' : 'text-red-600 bg-red-50';
-      default: return 'text-gray-500';
+  const filteredDocs = useMemo(() => {
+    return docs.filter(doc => {
+      const matchesSearch = doc.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus = filterStatus === 'All' || doc.status === filterStatus;
+      return matchesSearch && matchesStatus;
+    });
+  }, [docs, searchTerm, filterStatus]);
+
+  const handleSelectDoc = (id: string) => {
+    if (!selectMode) return;
+    const newSelection = new Set(selectedDocs);
+    if (newSelection.has(id)) {
+      newSelection.delete(id);
+    } else {
+      newSelection.add(id);
+    }
+    setSelectedDocs(newSelection);
+  };
+  
+  const toggleSelectAll = () => {
+    if (selectedDocs.size === filteredDocs.length) {
+      setSelectedDocs(new Set());
+    } else {
+      setSelectedDocs(new Set(filteredDocs.map(d => d.id)));
     }
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-5xl">
-      <div className="flex justify-between items-end mb-8">
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-8 gap-4">
         <div>
-          <h1 className="text-3xl font-bold mb-2">My Documents</h1>
-          <p className="opacity-70">Manage and simplify your reading materials.</p>
+          <h1 className="text-3xl font-bold tracking-tight">My Documents</h1>
+          <p className="text-gray-500 mt-1">Manage and simplify your reading materials.</p>
         </div>
       </div>
 
       {/* Upload Area */}
-      <div 
-        className={`mb-12 border-2 border-dashed rounded-xl p-10 text-center transition-all cursor-pointer ${
-          dragActive 
-            ? 'border-brand-500 bg-brand-50' 
-            : (highContrast ? 'border-gray-600 hover:border-yellow-400' : 'border-gray-300 hover:border-brand-400 hover:bg-gray-50')
+      <div
+        className={`relative mb-12 border-2 border-dashed rounded-xl p-10 text-center transition-all duration-300 cursor-pointer group ${
+          dragActive
+            ? 'border-brand-500 bg-brand-50'
+            : 'border-gray-300 hover:border-brand-400 hover:bg-gray-50'
         }`}
-        onDragEnter={handleDrag}
-        onDragLeave={handleDrag}
-        onDragOver={handleDrag}
-        onDrop={handleDrop}
+        onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop}
         onClick={() => fileInputRef.current?.click()}
       >
-        <input 
-          ref={fileInputRef}
-          type="file" 
-          className="hidden" 
-          onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])}
-        />
-        
-        <div className="flex flex-col items-center gap-4">
-          <div className={`p-4 rounded-full ${highContrast ? 'bg-gray-800' : 'bg-brand-100 text-brand-600'}`}>
+        <input ref={fileInputRef} type="file" className="hidden" onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])} />
+        <div className="flex flex-col items-center gap-4 text-gray-600">
+          <div className="p-4 rounded-full bg-gray-100 group-hover:bg-brand-100 group-hover:text-brand-600 transition-colors">
             <Upload size={32} />
           </div>
           <div>
-            <p className="text-xl font-medium mb-1">
-              Click or Drag file to upload
-            </p>
-            <p className="opacity-60 text-sm">PDF, DOCX, TXT up to 10MB</p>
+            <p className="font-semibold text-lg mb-1">Click or Drag file to upload</p>
+            <p className="text-gray-500 text-sm">PDF, DOCX, TXT up to 10MB</p>
           </div>
         </div>
       </div>
 
-      {/* Document List */}
-      <div className={`rounded-xl overflow-hidden shadow-sm border ${highContrast ? 'border-gray-700 bg-gray-900' : 'border-gray-200 bg-white'}`}>
-        {loadingDocs ? (
-          <div className="p-8 text-center opacity-60">Loading documents...</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className={`border-b ${highContrast ? 'border-gray-700 bg-gray-800' : 'bg-gray-50 border-gray-200'}`}>
-                <tr>
-                  <th className="p-4 font-semibold">Name</th>
-                  <th className="p-4 font-semibold">Date</th>
-                  <th className="p-4 font-semibold">Status</th>
-                  <th className="p-4 font-semibold text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200/20">
-                {docs.map(doc => (
-                  <tr key={doc.id} className={`group ${highContrast ? 'hover:bg-gray-800' : 'hover:bg-gray-50'}`}>
-                    <td className="p-4">
-                      <div className="flex items-center gap-3">
-                        <FileText size={20} className="opacity-50" />
-                        <span className="font-medium">{doc.name}</span>
-                      </div>
-                    </td>
-                    <td className="p-4 opacity-70">
-                        {doc.created_at ? new Date(doc.created_at).toLocaleDateString() : 'Just now'}
-                    </td>
-                    <td className="p-4">
-                      <span className={`px-3 py-1 rounded-full text-xs font-bold inline-flex items-center gap-1.5 ${getStatusColor(doc.status)}`}>
-                        {doc.status === 'Ready' && <CheckCircle size={12} />}
-                        {doc.status === 'Pending' && <Clock size={12} />}
-                        {doc.status === 'Needs Review' && <AlertCircle size={12} />}
-                        {doc.status}
-                      </span>
-                    </td>
-                    <td className="p-4 text-right">
-                      <div className="flex items-center justify-end gap-3">
-                        {doc.status === 'Ready' && (
-                          <Link 
-                            to={`/document/${doc.id}`}
-                            className={`inline-flex items-center gap-1 text-sm font-semibold hover:underline ${highContrast ? 'text-yellow-400' : 'text-brand-600'}`}
-                          >
-                            <Eye size={16} /> View
-                          </Link>
-                        )}
-                        <button 
-                            onClick={(e) => handleDelete(doc.id, e)}
-                            className="p-1 opacity-20 hover:opacity-100 hover:text-red-500 transition-opacity"
-                            title="Delete"
-                        >
-                            <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {docs.length === 0 && (
-                  <tr>
-                    <td colSpan={4} className="p-8 text-center opacity-60">No documents uploaded yet.</td>
-                  </tr>
+      {/* Controls */}
+      <div className="mb-6 flex flex-col sm:flex-row gap-4">
+        <div className="relative flex-grow">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+          <input
+            type="text"
+            placeholder="Search documents..."
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-brand-500 focus:border-brand-500"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        <div className="flex items-center gap-2">
+            <FilterButton status="All" current={filterStatus} onClick={setFilterStatus} />
+            <FilterButton status="Ready" current={filterStatus} onClick={setFilterStatus} />
+            <FilterButton status="Pending" current={filterStatus} onClick={setFilterStatus} />
+            <FilterButton status="Needs Review" current={filterStatus} onClick={setFilterStatus} />
+        </div>
+        <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSelectMode(!selectMode)}
+              className={`px-4 py-2 rounded-lg font-semibold text-sm flex items-center gap-2 transition-colors ${
+                selectMode ? 'bg-brand-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              {selectMode ? 'Cancel' : 'Select'}
+            </button>
+            {selectMode && selectedDocs.size > 0 && (
+              <button
+                onClick={() => handleDelete(Array.from(selectedDocs))}
+                className="px-4 py-2 rounded-lg font-semibold text-sm flex items-center gap-2 bg-red-500 text-white hover:bg-red-600"
+              >
+                <Trash2 size={16} /> Delete ({selectedDocs.size})
+              </button>
+            )}
+        </div>
+      </div>
+      
+      {/* Document Grid */}
+      {loadingDocs ? (
+         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {[...Array(8)].map((_, i) => <SkeletonCard key={i} />)}
+        </div>
+      ) : filteredDocs.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {filteredDocs.map((doc, i) => (
+            <DocumentCard
+              key={doc.id}
+              doc={doc}
+              onDelete={() => handleDelete([doc.id])}
+              onSelect={() => handleSelectDoc(doc.id)}
+              isSelected={selectedDocs.has(doc.id)}
+              selectMode={selectMode}
+              style={{ animationDelay: `${i * 50}ms` }}
+              className="card-fade-in"
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-16 sm:py-20 border-2 border-dashed border-gray-300 rounded-xl">
+            <NoDocuments className="w-48 h-48 mx-auto text-gray-400" />
+            <h3 className="mt-6 text-xl font-semibold text-gray-800">No documents here yet.</h3>
+            <p className="mt-2 text-base text-gray-500">
+                {searchTerm ? `Try adjusting your search or filter.` : `Upload a document to get started and see the magic!`}
+            </p>
+            {!searchTerm && (
+                <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="mt-6 inline-flex items-center gap-2 px-6 py-3 text-base font-semibold text-white bg-brand-600 rounded-lg shadow-sm hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500"
+                >
+                    <Upload size={20} />
+                    Upload Document
+                </button>
+            )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// -- Components --
+
+const FilterButton: React.FC<{ status: DocStatus | 'All', current: string, onClick: (status: DocStatus | 'All') => void }> = 
+({ status, current, onClick }) => {
+    const isActive = status === current;
+    const colors = {
+        'All': 'hover:bg-gray-200',
+        'Ready': 'hover:bg-green-100 text-green-700',
+        'Pending': 'hover:bg-yellow-100 text-yellow-700',
+        'Needs Review': 'hover:bg-red-100 text-red-700',
+    };
+    const activeColors = {
+        'All': 'bg-gray-200',
+        'Ready': 'bg-green-100 text-green-800',
+        'Pending': 'bg-yellow-100 text-yellow-800',
+        'Needs Review': 'bg-red-100 text-red-800',
+    };
+    return (
+        <button
+            onClick={() => onClick(status)}
+            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${isActive ? activeColors[status] : colors[status]}`}
+        >
+            {status}
+        </button>
+    );
+}
+
+const DocumentCard: React.FC<{
+  doc: DocumentItem;
+  onDelete: () => void;
+  onSelect: () => void;
+  isSelected: boolean;
+  selectMode: boolean;
+  style?: React.CSSProperties;
+  className?: string;
+}> = ({ doc, onDelete, onSelect, isSelected, selectMode, style, className }) => {
+  const getStatusInfo = (status: DocStatus): { color: string; icon: React.ReactNode } => {
+    switch (status) {
+      case 'Ready': return { color: 'border-green-500', icon: <CheckCircle className="text-green-500" size={18} /> };
+      case 'Pending': return { color: 'border-yellow-500', icon: <Clock className="text-yellow-500" size={18} /> };
+      case 'Needs Review': return { color: 'border-red-500', icon: <AlertCircle className="text-red-500" size={18} /> };
+      default: return { color: 'border-gray-300', icon: <FileText className="text-gray-400" size={18} /> };
+    }
+  };
+
+  const { color, icon } = getStatusInfo(doc.status);
+
+  return (
+    <div
+      onClick={onSelect}
+      style={style}
+      className={`relative group bg-white border rounded-lg shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer ${
+        selectMode ? 'border-gray-300' : 'hover:-translate-y-1'
+      } ${isSelected ? 'ring-2 ring-brand-500 border-transparent' : ''} ${className}`}
+    >
+      {selectMode && (
+         <div className={`absolute top-3 right-3 w-5 h-5 rounded-full flex items-center justify-center border-2 transition-all ${isSelected ? 'bg-brand-600 border-brand-600' : 'bg-white border-gray-400'}`}>
+            {isSelected && <CheckCircle className="text-white" size={14} />}
+        </div>
+      )}
+      <div className={`p-4 border-l-4 ${color} rounded-l-lg`}>
+        <div className="flex justify-between items-start">
+            <div className='flex items-center gap-3'>
+                 {icon}
+                 <h3 className="font-semibold text-gray-800 pr-8">{doc.name}</h3>
+            </div>
+            <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                {!selectMode && (
+                     <button
+                        onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                        className="p-1.5 rounded-full hover:bg-red-100 hover:text-red-600 text-gray-400 transition-colors"
+                        title="Delete"
+                      >
+                        <Trash2 size={18} />
+                      </button>
                 )}
-              </tbody>
-            </table>
-          </div>
+            </div>
+        </div>
+
+        <div className="mt-4 flex justify-between items-center text-sm text-gray-500">
+            <span>{doc.created_at ? new Date(doc.created_at).toLocaleDateString() : 'Just now'}</span>
+            <span className={`px-2 py-1 rounded-full text-xs font-bold inline-flex items-center gap-1.5`}>
+                {doc.status}
+            </span>
+        </div>
+        {doc.status === 'Ready' && (
+            <Link
+                to={`/document/${doc.id}`}
+                onClick={(e) => { if (selectMode) e.preventDefault(); }} // Disable link in select mode
+                className={`mt-4 inline-flex items-center gap-2 text-sm font-semibold text-brand-600 hover:underline ${selectMode ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                <Eye size={16} /> View Document
+            </Link>
         )}
       </div>
     </div>
   );
+};
+
+const SkeletonCard: React.FC = () => {
+    return (
+        <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4">
+            <div className="animate-pulse flex space-x-4">
+                <div className="rounded-full bg-gray-200 h-10 w-10"></div>
+                <div className="flex-1 space-y-3 py-1">
+                    <div className="h-2 bg-gray-200 rounded"></div>
+                    <div className="space-y-2">
+                        <div className="grid grid-cols-3 gap-4">
+                            <div className="h-2 bg-gray-200 rounded col-span-2"></div>
+                            <div className="h-2 bg-gray-200 rounded col-span-1"></div>
+                        </div>
+                        <div className="h-2 bg-gray-200 rounded"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
 };
 
 export default Dashboard;

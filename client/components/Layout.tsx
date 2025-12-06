@@ -2,10 +2,10 @@ import React from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAccessibility } from '../context/AccessibilityContext';
 import { useAuth } from '../context/AuthContext';
-import { Sun, Moon, Type, LogOut, BookOpen, Sparkles } from 'lucide-react';
+import { Type, LogOut, BookOpen, Sparkles } from 'lucide-react';
 
 const Layout: React.FC = () => {
-  const { toggleFontSize, toggleHighContrast, highContrast } = useAccessibility();
+  const { toggleFontSize } = useAccessibility();
   const { user, signOut } = useAuth();
   const location = useLocation();
 
@@ -13,47 +13,39 @@ const Layout: React.FC = () => {
   const isLanding = location.pathname === '/';
 
   return (
-    <div className={`min-h-screen flex flex-col ${highContrast ? 'high-contrast-mode' : ''}`}>
+    <div className="min-h-screen flex flex-col">
       <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 px-4 py-2 bg-brand-600 text-white rounded">
         Skip to main content
       </a>
 
-      <header className={`border-b ${highContrast ? 'border-yellow-500 bg-black' : 'border-gray-200 bg-white'} sticky top-0 z-40`}>
+      <header className="border-b border-gray-200 bg-white sticky top-0 z-40">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2 font-bold text-2xl tracking-tighter">
-            <BookOpen className={highContrast ? 'text-yellow-400' : 'text-brand-600'} />
-            <span className={highContrast ? 'text-yellow-400' : 'text-slate-900'}>getlitty</span>
+            <BookOpen className="text-green-600" />
+            <span className="text-slate-900">getlitty</span>
           </Link>
 
           <nav className="flex items-center gap-4">
             <div className="hidden md:flex items-center gap-2 border-r pr-4 border-gray-300">
-              <button 
-                onClick={toggleFontSize} 
-                className={`p-2 rounded hover:bg-opacity-20 hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-brand-500 ${highContrast ? 'text-yellow-400' : 'text-slate-600'}`}
+              <button
+                onClick={toggleFontSize}
+                className="p-2 rounded hover:bg-opacity-20 hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-brand-500 text-slate-600"
                 aria-label="Toggle font size"
                 title="Toggle Font Size"
               >
                 <Type size={20} />
               </button>
-              <button 
-                onClick={toggleHighContrast}
-                className={`p-2 rounded hover:bg-opacity-20 hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-brand-500 ${highContrast ? 'text-yellow-400' : 'text-slate-600'}`}
-                aria-label="Toggle high contrast"
-                title="Toggle High Contrast"
-              >
-                {highContrast ? <Sun size={20} /> : <Moon size={20} />}
-              </button>
             </div>
 
             {user ? (
               <div className="flex items-center gap-4">
-                <Link to="/dashboard" className={`font-medium hover:underline ${highContrast ? 'text-yellow-400' : 'text-brand-700'}`}>Dashboard</Link>
-                <Link to="/questionnaire" className={`hidden sm:flex items-center gap-1 font-medium hover:underline ${highContrast ? 'text-yellow-400' : 'text-brand-700'}`}>
+                <Link to="/dashboard" className="font-medium hover:underline text-brand-700">Dashboard</Link>
+                <Link to="/questionnaire" className="hidden sm:flex items-center gap-1 font-medium hover:underline text-brand-700">
                    <Sparkles size={16} /> Personalize
                 </Link>
-                <button 
-                  onClick={() => signOut()} 
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded border ${highContrast ? 'border-yellow-400 text-yellow-400 hover:bg-yellow-900' : 'border-slate-300 hover:bg-slate-50'}`}
+                <button
+                  onClick={() => signOut()}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded border border-slate-300 hover:bg-slate-50"
                 >
                   <LogOut size={16} />
                   <span className="hidden sm:inline">Sign Out</span>
@@ -75,7 +67,7 @@ const Layout: React.FC = () => {
         <Outlet />
       </main>
 
-      <footer className={`py-6 text-center text-sm ${highContrast ? 'text-yellow-600 border-t border-yellow-900' : 'text-slate-500 border-t'}`}>
+      <footer className="py-6 text-center text-sm text-gray-500 border-t bg-green-50">
         <p>&copy; {new Date().getFullYear()} getlitty. All rights reserved.</p>
       </footer>
     </div>

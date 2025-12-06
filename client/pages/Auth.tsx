@@ -2,13 +2,11 @@ import React, { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { supabase, isSupabaseConfigured } from '../services/supabase';
 import { useAuth } from '../context/AuthContext';
-import { useAccessibility } from '../context/AccessibilityContext';
 
 const Auth: React.FC = () => {
   const { signIn } = useAuth(); // Context helper
   const navigate = useNavigate();
   const location = useLocation();
-  const { highContrast } = useAccessibility();
   
   const isSignup = location.pathname === '/signup';
   
@@ -57,15 +55,11 @@ const Auth: React.FC = () => {
     }
   };
 
-  const inputClass = `w-full px-4 py-3 rounded border focus:ring-2 focus:outline-none transition-colors ${
-    highContrast 
-      ? 'bg-gray-900 border-yellow-600 text-yellow-300 focus:ring-yellow-400' 
-      : 'bg-white border-gray-300 focus:ring-brand-500 focus:border-brand-500'
-  }`;
+  const inputClass = 'w-full px-4 py-3 rounded border focus:ring-2 focus:outline-none transition-colors bg-white border-gray-300 focus:ring-brand-500 focus:border-brand-500';
 
   return (
     <div className="flex items-center justify-center min-h-[calc(100vh-64px)] p-4">
-      <div className={`w-full max-w-md p-8 rounded-xl shadow-lg ${highContrast ? 'bg-gray-800 border border-yellow-600' : 'bg-white'}`}>
+      <div className="w-full max-w-md p-8 rounded-xl shadow-lg bg-white">
         <h2 className="text-3xl font-bold mb-6 text-center">{isSignup ? 'Create Account' : 'Welcome Back'}</h2>
         
         {error && (
@@ -102,15 +96,11 @@ const Auth: React.FC = () => {
             />
           </div>
 
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             disabled={loading}
-            className={`w-full py-3 px-4 rounded font-bold transition-transform active:scale-95 ${
+            className={`w-full py-3 px-4 rounded font-bold transition-transform active:scale-95 bg-brand-600 text-white hover:bg-brand-700 ${
               loading ? 'opacity-70 cursor-not-allowed' : ''
-            } ${
-              highContrast 
-                ? 'bg-yellow-400 text-black hover:bg-yellow-300' 
-                : 'bg-brand-600 text-white hover:bg-brand-700'
             }`}
           >
             {loading ? 'Processing...' : (isSignup ? 'Sign Up' : 'Log In')}

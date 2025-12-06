@@ -12,7 +12,7 @@ const MOCK_CONTENT = {
 
 const DocumentView: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const { highContrast, fontSize } = useAccessibility();
+  const { fontSize } = useAccessibility();
   const [activeTab, setActiveTab] = useState<'split' | 'original' | 'simplified'>('split');
   const [doc, setDoc] = useState<DocumentItem | null>(null);
   const [loading, setLoading] = useState(true);
@@ -81,7 +81,7 @@ const DocumentView: React.FC = () => {
   return (
     <div className="flex flex-col h-[calc(100vh-64px)]">
       {/* Toolbar */}
-      <div className={`border-b p-4 flex items-center justify-between ${highContrast ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`}>
+      <div className="border-b p-4 flex items-center justify-between bg-white border-gray-200">
         <div className="flex items-center gap-4">
           <Link to="/dashboard" className="p-2 rounded-full hover:bg-gray-500/10">
             <ArrowLeft size={20} />
@@ -107,19 +107,19 @@ const DocumentView: React.FC = () => {
         <div className="flex bg-gray-500/10 p-1 rounded-lg">
           <button 
             onClick={() => setActiveTab('original')}
-            className={`px-3 py-1 rounded text-sm font-medium transition-all ${activeTab === 'original' ? 'bg-white text-brand-600 shadow-sm' : 'opacity-60 hover:opacity-100'}`}
+            className={`px-3 py-1 rounded text-sm font-medium transition-all ${activeTab === 'original' ? 'bg-white text-green-600 shadow-sm' : 'opacity-60 hover:opacity-100'}`}
           >
             Original Only
           </button>
           <button 
             onClick={() => setActiveTab('split')}
-            className={`px-3 py-1 rounded text-sm font-medium transition-all ${activeTab === 'split' ? 'bg-white text-brand-600 shadow-sm' : 'opacity-60 hover:opacity-100'}`}
+            className={`px-3 py-1 rounded text-sm font-medium transition-all ${activeTab === 'split' ? 'bg-white text-green-600 shadow-sm' : 'opacity-60 hover:opacity-100'}`}
           >
             Split View
           </button>
           <button 
             onClick={() => setActiveTab('simplified')}
-            className={`px-3 py-1 rounded text-sm font-medium transition-all ${activeTab === 'simplified' ? 'bg-white text-brand-600 shadow-sm' : 'opacity-60 hover:opacity-100'}`}
+            className={`px-3 py-1 rounded text-sm font-medium transition-all ${activeTab === 'simplified' ? 'bg-white text-green-600 shadow-sm' : 'opacity-60 hover:opacity-100'}`}
           >
             Simplified
           </button>
@@ -132,7 +132,7 @@ const DocumentView: React.FC = () => {
           
           {/* Original Panel */}
           {(activeTab === 'split' || activeTab === 'original') && (
-            <div className={`flex flex-col h-full overflow-hidden ${highContrast ? 'bg-gray-900' : 'bg-gray-50'}`}>
+            <div className="flex flex-col h-full overflow-hidden bg-gray-50">
               <div className="p-3 border-b border-gray-200/10 text-xs font-bold uppercase tracking-wider opacity-60 flex items-center gap-2">
                 <FileText size={14} /> Original
               </div>
@@ -146,8 +146,8 @@ const DocumentView: React.FC = () => {
 
           {/* Simplified Panel */}
           {(activeTab === 'split' || activeTab === 'simplified') && (
-            <div className={`flex flex-col h-full overflow-hidden ${highContrast ? 'bg-black' : 'bg-white'}`}>
-              <div className={`p-3 border-b border-gray-200/10 text-xs font-bold uppercase tracking-wider flex items-center gap-2 ${highContrast ? 'text-yellow-400' : 'text-brand-600'}`}>
+            <div className="flex flex-col h-full overflow-hidden bg-white">
+              <div className="p-3 border-b border-gray-200/10 text-xs font-bold uppercase tracking-wider flex items-center gap-2 text-brand-600">
                 <Maximize2 size={14} /> Simplified
               </div>
               <div className="flex-1 overflow-y-auto p-6">
