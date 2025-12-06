@@ -27,6 +27,9 @@ const Dashboard: React.FC = () => {
   const [loadingDocs, setLoadingDocs] = useState(true);
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Store the prompt fetched from profiles table
+  const [userPrompt, setUserPrompt] = useState<string>('');
 
   // Fetch Documents Logic
   const fetchDocuments = useCallback(async () => {
@@ -49,6 +52,28 @@ const Dashboard: React.FC = () => {
     } finally {
       setLoadingDocs(false);
     }
+  }, [user]);
+
+  // Fetch User Profile Details (Prompt)
+  useEffect(() => {
+    const fetchUserPrompt = async () => {
+      if (!user || !isSupabaseConfigured()) return;
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('details')
+          .eq('id', user.id)
+          .single();
+        
+        if (data && data.details) {
+          setUserPrompt(data.details);
+        }
+      } catch (error) {
+        console.error('Error fetching user profile prompt:', error);
+      }
+    };
+    
+    fetchUserPrompt();
   }, [user]);
 
   // Initial Fetch
@@ -109,6 +134,8 @@ const Dashboard: React.FC = () => {
 
       const formData = new FormData();
       formData.append('file', file);
+      // Append the profile details as 'prompt'
+      formData.append('prompt', userPrompt);
 
       // Using localhost:8000/upload as requested
       const response = await fetch('http://localhost:8000/upload', {
