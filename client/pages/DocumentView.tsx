@@ -75,7 +75,7 @@ const DocumentView: React.FC = () => {
       return (
         <div className="flex h-[calc(100vh-64px)] flex-col items-center justify-center gap-4">
             <div className="text-red-500 font-bold">{error || 'Document not found'}</div>
-            <Link to="/dashboard" className="text-brand-600 hover:underline">Return to Dashboard</Link>
+            <Link to="/dashboard" text-green-600>Return to Dashboard</Link>
         </div>
       );
   }
@@ -149,7 +149,7 @@ const DocumentView: React.FC = () => {
           {/* Simplified Panel */}
           {(activeTab === 'split' || activeTab === 'simplified') && (
             <div className="flex flex-col h-full overflow-hidden bg-white">
-              <div className="p-3 border-b border-gray-200/10 text-xs font-bold uppercase tracking-wider flex items-center gap-2 text-brand-600">
+              <div className="p-3 border-b border-gray-200/10 text-xs font-bold uppercase tracking-wider flex items-center gap-2 text-green-600">
                 <Maximize2 size={14} /> Simplified
               </div>
               <div className="flex-1 overflow-y-auto p-6 prose prose-lg max-w-none">

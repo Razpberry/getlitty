@@ -195,15 +195,15 @@ const Dashboard: React.FC = () => {
       <div
         className={`relative mb-12 border-2 border-dashed rounded-xl p-10 text-center transition-all duration-300 cursor-pointer group ${
           dragActive
-            ? 'border-brand-500 bg-brand-50'
-            : 'border-gray-300 hover:border-brand-400 hover:bg-gray-50'
+            ? 'border-green-500 bg-green-50'
+            : 'border-gray-300 hover:border-green-400 hover:bg-gray-50'
         }`}
         onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop}
         onClick={() => fileInputRef.current?.click()}
       >
         <input ref={fileInputRef} type="file" className="hidden" onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])} />
         <div className="flex flex-col items-center gap-4 text-gray-600">
-          <div className="p-4 rounded-full bg-gray-100 group-hover:bg-brand-100 group-hover:text-brand-600 transition-colors">
+          <div className="p-4 rounded-full bg-gray-100 group-hover:bg-green-100 group-hover:text-green-600 transition-colors">
             <Upload size={32} />
           </div>
           <div>
@@ -220,7 +220,7 @@ const Dashboard: React.FC = () => {
           <input
             type="text"
             placeholder="Search documents..."
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-brand-500 focus:border-brand-500"
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -295,7 +295,7 @@ const Dashboard: React.FC = () => {
             {!searchTerm && (
                 <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="mt-6 inline-flex items-center gap-2 px-6 py-3 text-base font-semibold text-white bg-brand-600 rounded-lg shadow-sm hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500"
+                    className="mt-6 inline-flex items-center gap-2 px-6 py-3 text-base font-semibold text-white bg-green-600 rounded-lg shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
                 >
                     <Upload size={20} />
                     Upload Document
@@ -366,10 +366,10 @@ const DocumentCard: React.FC<{
       style={style}
       className={`relative group bg-white border rounded-lg shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer overflow-hidden ${
         selectMode ? 'border-gray-300' : 'hover:-translate-y-1'
-      } ${isSelected ? 'ring-2 ring-brand-500 border-transparent' : ''} ${className}`}
+      } ${isSelected ? 'ring-2 ring-green-500 border-transparent' : ''} ${className}`}
     >
       {selectMode && (
-         <div className={`absolute top-3 right-3 w-5 h-5 rounded-full flex items-center justify-center border-2 transition-all z-10 ${isSelected ? 'bg-brand-600 border-brand-600' : 'bg-white border-gray-400'}`}>
+         <div className={`absolute top-3 right-3 w-5 h-5 rounded-full flex items-center justify-center border-2 transition-all z-10 ${isSelected ? 'bg-green-600 border-green-600' : 'bg-white border-gray-400'}`}>
             {isSelected && <CheckCircle className="text-white" size={14} />}
         </div>
       )}
@@ -402,7 +402,7 @@ const DocumentCard: React.FC<{
             <Link
                 to={`/document/${doc.id}`}
                 onClick={(e) => { if (selectMode) e.preventDefault(); }} 
-                className={`mt-3 w-full text-center py-1.5 rounded text-sm font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 transition-colors ${selectMode ? 'opacity-50 pointer-events-none' : ''}`}
+                className={`mt-3 w-full text-center py-1.5 rounded text-sm font-semibold text-green-700 bg-green-50 hover:bg-green-100 transition-colors ${selectMode ? 'opacity-50 pointer-events-none' : ''}`}
               >
                 View Document
             </Link>

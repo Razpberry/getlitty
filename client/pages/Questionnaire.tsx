@@ -87,8 +87,8 @@ const Questionnaire: React.FC = () => {
   const btnClass = (active: boolean) => `
     flex items-center justify-between w-full p-4 mb-2 rounded-lg border text-left transition-all
     ${active
-      ? (highContrast ? 'bg-yellow-400 text-black border-yellow-500 font-bold' : 'bg-brand-50 border-brand-500 ring-1 ring-brand-500')
-      : (highContrast ? 'bg-gray-800 text-yellow-100 border-gray-600 hover:bg-gray-700' : 'bg-white border-gray-200 hover:bg-gray-50')}
+      ? 'bg-green-50 border-green-500 ring-1 ring-green-500'
+      : 'bg-white border-gray-200 hover:bg-gray-50'}
   `;
 
   const toggleMulti = (field: keyof QuestionnaireData, value: string) => {
@@ -189,15 +189,15 @@ const Questionnaire: React.FC = () => {
           <span>Step {currentStep + 1} of {STEPS.length}</span>
           <span>{Math.round(progress)}% Completed</span>
         </div>
-        <div className={`h-2 w-full rounded-full ${highContrast ? 'bg-gray-700' : 'bg-gray-200'}`}>
+        <div className={`h-2 w-full rounded-full bg-gray-200`}>
           <div
-            className={`h-full rounded-full transition-all duration-300 ${highContrast ? 'bg-yellow-400' : 'bg-brand-500'}`}
+            className={`h-full rounded-full transition-all duration-300 bg-green-500`}
             style={{ width: `${progress}%` }}
           />
         </div>
       </div>
 
-      <div className={`p-8 rounded-xl shadow-sm min-h-[420px] flex flex-col ${highContrast ? 'bg-gray-900 border border-yellow-700' : 'bg-white border border-gray-100'}`}>
+      <div className={`p-8 rounded-xl shadow-sm min-h-[420px] flex flex-col bg-white border border-gray-100`}>
         <h2 className="text-2xl font-bold mb-6">{step.title}</h2>
 
         <div className="flex-1 space-y-3">

@@ -1,12 +1,16 @@
 import React from 'react';
 
-const FeatureCard = ({ icon, title, desc }: { icon: React.ReactNode, title: string, desc: string }) => (
-  <div className="p-8 rounded-xl border transition-all hover:-translate-y-1 bg-white border-gray-100 shadow-xl shadow-gray-200/50">
-    <div className="mb-6 p-3 rounded-lg inline-block bg-brand-100 text-brand-600">
-      {icon}
-    </div>
-    <h3 className="text-xl font-bold mb-3 text-gray-900">{title}</h3>
-    <p className="text-gray-600">{desc}</p>
+interface FeatureCardProps {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+}
+
+const FeatureCard: React.FC<FeatureCardProps> = ({ icon, title, description }) => (
+  <div className="bg-white rounded-xl p-8 shadow-lg flex flex-col items-center text-center transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-green-500/50">
+    <div className="text-5xl mb-6 text-green-600">{icon}</div>
+    <h3 className="text-2xl font-semibold mb-3 text-gray-900">{title}</h3>
+    <p className="text-gray-700 text-base">{description}</p>
   </div>
 );
 
